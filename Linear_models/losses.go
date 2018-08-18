@@ -5,54 +5,57 @@ import ("dsgd/Math"
 )
 
 // mean squared eror loss function
-func MSE(target,prediction,regularizer float64) (float64){
+func MSE(target,prediction Math.Matrix) (float64){
 
-	loss:= math.Pow(target - prediction,2) + regularizer
-	return loss
+
+	batch,_ := prediction.Shape()
+
+	diff := target.Sub(prediction)
+	
+	squared_diff := diff.Apply(func(a float64) float64 {return math.Pow(a,2) })
+
+	loss := squared_diff.Sum_along_axis(0)
+
+	return (loss.Data[0][0] / (2 * batch) )
 }
 
 // logistic regression error loss function
 // We use a special form of the algorithm
 // Sum xn(sigmoid(xnTw) -yn)
-func Logistic(target,prediction,regularizer float64) (float64){
+func Logistic(target,prediction Math.Matrix) (float64){
 
-	loss := math.Log(1 + math.Exp(prediction)) - (target * prediction)
-	return loss + regularizer
+	logarithm := prediction.Apply(func(a float64) float64 {return math.Log(1 + math.Exp(a)) })	
+
+	loss := logarithm.Sub(target.Dot(prediction)) 	
+	
+	return loss.Data[0][0]
 }
 
-// hinge loss function
-func Hinge(target,prediction,regularizer float64) (float64){
 
-	loss:= math.Max(0,1 - (target * prediction)) + regularizer
-	return loss
-}
 
 // derivative of mse = 2(yn - xnTw)
-func DMSE(target,prediction float64,dataPoint Math.Vector) (Math.Vector) {
+func DMSE(target,prediction ,dataPoint Math.Matrix) (Math.Matrix) {
+	
+	batch,_ := prediction.Shape()
 
-	return dataPoint.Prod(prediction - target)
+	gradient := (dataPoint.T()).Dot( target.Sub(prediction) )
+
+	gradient = gradient.Apply(func(a float64) float64 {return a * (-1/batch) })
+	
+	return gradient
 }
 
 // derivative of logistic function
 // <xn,sigmoid(xnTw) - yn)
-func DLogistic(target,prediction float64,dataPoint Math.Vector) (Math.Vector){
+func DLogistic(target,prediction,dataPoint Math.Matrix) (Math.Matrix){
 
-	return dataPoint.Prod(Sigmoid(prediction) - target).T()
+	sigmoid := prediction.Apply(func(a float64) float64 {return Sigmoind(a) })
+
+	gradient := (dataPoint.T()).Dot( sigmoid.Sub(target) )
+
+	return gradient
 }
 
-// derivative of hinge loss
-// if hinge loss < 0 return lambda*w
-// else -xnTyn + lambda //w//^2
-func DHinge(target,hinge_loss float64,dataPoint,regularizer Math.Vector) (Math.Vector) {
-
-	if hinge_loss <= 0.0 {
-		return regularizer
-	}else{
-		sum,_ := dataPoint.T().Prod(-1 * target).Sum(regularizer)
-		return sum
-	}
-
-}
 
 func Sigmoid(prediction float64) (float64)  {
 
